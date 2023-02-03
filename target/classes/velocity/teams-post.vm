@@ -1,0 +1,3 @@
+{
+   "text": "<b>OCP-URL:</b> ${exchange.properties.externalURL}. ${exchange.properties.messageBody}"
+}

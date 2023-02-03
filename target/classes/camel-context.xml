@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans.xsd        
+	http://camel.apache.org/schema/spring       
+	http://camel.apache.org/schema/spring/camel-spring-2.25.3.xsd">
+	<import resource="bean-definitions.xml" />
+	<bean id="procesaInfo" class="com.middleware.bean.ProcessorBean" />
+	<camelContext
+		id="camelContext-ce0e3c0d-5251-4493-97dd-41385f560f35"
+		xmlns="http://camel.apache.org/schema/spring">
+		<propertyPlaceholder id="placeholder"
+			location="globalConfig.properties" />
+		<onException>
+			<exception>com.middleware.exception.ServiceException</exception>
+			<handled>
+				<constant>true</constant>
+			</handled>
+			<setHeader headerName="codigoError">
+				<simple>${exception.codigoError}</simple>
+			</setHeader>
+			<setHeader headerName="messageError">
+				<simple>${exception.message}</simple>
+			</setHeader>
+			<setHeader headerName="Content-Type">
+				<constant>application/json</constant>
+			</setHeader>
+			<setBody>
+				<simple>{"code":"${exception.codigoError}","errorMessage":"${exception.message}"}
+				</simple>
+			</setBody>
+			<log message="ERROR: ${body}" />
+		</onException>
+		<onException>
+			<exception>java.lang.Exception</exception>
+			<handled>
+				<constant>true</constant>
+			</handled>
+			<setHeader headerName="Content-Type">
+				<constant>application/json</constant>
+			</setHeader>
+			<log message="ERROR: ${exception.message}" />
+			<setBody>
+				<simple>{"code": 500,"errorMessage":"The request could not be
+					completed."}
+				</simple>
+			</setBody>
+			<log loggingLevel="INFO" message="\n${body}" />
+		</onException>
+
+		<!-- route service -->
+		<route id="_routeServicio" streamCache="true">
+			<from id="_endPoint"
+				uri="jetty:{{service.rest.protocol}}://{{service.rest.host}}:{{service.rest.port}}{{service.rest.resource.props}}?httpMethodRestrict=POST" />
+
+			<convertBodyTo id="_convertBodyToString"
+				type="java.lang.String" />
+
+			<!-- BODY data -->
+			<!-- <log loggingLevel="INFO"> -->
+			<!-- <log message="\n:::::::::Body-WeebHook:::::::::\n${body}" />-->
+
+			<choice>
+				<when>
+					<jsonpath resultType="java.lang.String">$.commonLabels.[?(@.namespace )]</jsonpath>
+					<setProperty propertyName="namespace">
+						<jsonpath resultType="java.lang.String">$.commonLabels.namespace</jsonpath>
+					</setProperty>
+				</when>
+				<otherwise>
+					<setProperty propertyName="namespace">
+						<constant>namespace not specified</constant>
+					</setProperty>
+				</otherwise>
+			</choice>
+
+			<choice>
+				<when>
+					<jsonpath resultType="java.lang.String">$.commonLabels.[?(@.severity )]</jsonpath>
+					<setProperty propertyName="severity">
+						<jsonpath resultType="java.lang.String">$.commonLabels.severity</jsonpath>
+					</setProperty>
+				</when>
+				<otherwise>
+					<setProperty propertyName="severity">
+						<constant>severity not specified</constant>
+					</setProperty>
+				</otherwise>
+			</choice>
+
+			<setProperty propertyName="externalURL">
+				<jsonpath resultType="java.lang.String">$.externalURL</jsonpath>
+			</setProperty>
+
+			<bean method="enlistaAlertas" ref="procesaInfo" />
+			<!-- <log message="\n:::::::::JavaOutBody:::::::::\n${body}" /> -->
+			<setProperty propertyName="messageBody">
+				<simple>${body}</simple>
+			</setProperty>
+
+
+			<toD uri="velocity:velocity/teams-post.vm" />
+			<log message="\n:::::::::Body-to-Teams:::::::::\n${body}" />
+
+			<setHeader headerName="Content-Type">
+				<constant>application/json</constant>
+			</setHeader>
+			<setHeader headerName="Accept">
+				<constant>application/json</constant>
+			</setHeader>
+
+			<!-- <toD id="requestApiTeam"
+				uri="https4://bancogalicia.webhook.office.com/webhookb2/8988f080-5426-401fac4/IncomingWebhook/77/cf2e26b1f?bridgeEndpoint=true&amp;httpMethod=POST" /> -->
+
+			<convertBodyTo type="java.lang.String" />
+
+			<log message="\n:::::::::Response-Teams:::::::::\n${body}" />
+
+
+
+		</route>
+
+	</camelContext>
+
+</beans>

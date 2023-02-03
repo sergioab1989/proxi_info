@@ -1,0 +1,29 @@
+spec:
+  template:
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: global-config-map
+          resources:
+            requests:
+              cpu: "0.5"
+              memory: 512Mi
+            limits:
+              cpu: "1.0"
+              memory: 1Gi
+          volumeMounts:
+            - mountPath: /config
+              name: volume-configmap
+          env:
+          - name: SPRING_APPLICATION_JSON
+            value: '{"server":{"undertow":{"io-threads":1, "worker-threads":2 }}}'
+      volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: globalConfig.properties
+                path: globalConfig.properties
+            name: global-config-map
+          name: volume-configmap
+         
